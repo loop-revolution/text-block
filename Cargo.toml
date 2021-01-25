@@ -1,0 +1,9 @@
+[package]
+name = "text-block"
+version = "0.1.0"
+authors = ["Louis Birla <louis.birla@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+async-trait = "0.1.42"
+block-tools = { path = "../../block-tools" }
