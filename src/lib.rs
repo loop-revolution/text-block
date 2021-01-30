@@ -1,7 +1,56 @@
 use async_trait::async_trait;
-use block_tools::{Error, blocks::{BlockType, Context}, display_api::{CreationObject, DisplayMeta, DisplayObject, MethodObject, PageMeta, component::{DisplayComponent, card::{CardComponent, CardHeader, CardIcon}, input::InputComponent, text::{TextComponent, TextPreset}}}, dsl, dsl::prelude::*, models::{BlockD, NewBlock, PropertyD}, schema::{blocks, properties}};
-
+use block_tools::{
+	blocks::{BlockType, Context},
+	display_api::{
+		component::{
+			card::{CardComponent, CardHeader, CardIcon},
+			input::InputComponent,
+			stack::{StackComponent, StackDirection},
+			text::{TextComponent, TextPreset},
+			DisplayComponent,
+		},
+		CreationObject, DisplayMeta, DisplayObject, PageMeta,
+	},
+	dsl::prelude::*,
+	models::{Block, MinNewBlock, Property},
+	schema::{blocks, properties},
+	BlockError, Error,
+};
+use serde::{Deserialize, Serialize};
+use serde_json::json;
 pub struct TextBlock {}
+
+fn text_properties(
+	block: &Block,
+	context: &Context,
+) -> Result<(Option<Block>, Option<Block>), Error> {
+	let conn = &context.pool.get()?;
+
+	let block_properties: Vec<Property> = properties::dsl::properties
+		.filter(properties::dsl::parent_id.eq(block.id))
+		.load::<Property>(conn)?;
+
+	let mut name: Option<Block> = None;
+	let mut content: Option<Block> = None;
+
+	for property in block_properties {
+		if property.property_name == "name" {
+			name = blocks::dsl::blocks
+				.filter(blocks::id.eq(property.value_id))
+				.limit(1)
+				.get_result(conn)
+				.optional()?;
+		} else if property.property_name == "content" {
+			content = blocks::dsl::blocks
+				.filter(blocks::id.eq(property.value_id))
+				.limit(1)
+				.get_result(conn)
+				.optional()?;
+		}
+	}
+
+	Ok((name, content))
+}
 
 #[async_trait]
 impl BlockType for TextBlock {
@@ -9,70 +58,50 @@ impl BlockType for TextBlock {
 		"text"
 	}
 
-	async fn page_display(block: &BlockD, context: &Context) -> Result<DisplayObject, Error> {
-		let conn = &context.pool.get()?;
+	async fn page_display(block: &Block, context: &Context) -> Result<DisplayObject, Error> {
+		let (name, content) = text_properties(block, context)?;
 
-		let block_properties: Vec<PropertyD> = properties::dsl::properties
-			.filter(properties::dsl::parent_id.eq(block.id))
-			.load::<PropertyD>(conn)?;
+		let name = name.and_then(|block| block.block_data);
+		let content = content.and_then(|block| block.block_data);
 
-		let mut name: Option<BlockD> = None;
-		let mut content: Option<BlockD> = None;
-
-		for property in block_properties {
-			if property.property_name == "name" {
-				name = blocks::dsl::blocks
-				.filter(blocks::id.eq(property.value_id))
-				.limit(1)
-				.get_result(conn)
-				.optional()?;
-			} else if property.property_name == "content" {
-				content = blocks::dsl::blocks
-				.filter(blocks::id.eq(property.value_id))
-				.limit(1)
-				.get_result(conn)
-				.optional()?;
-			}
-		}
-
-		let data = || match &block.block_data {
-			Some(str) => Some(String::from(str)),
-			None => None,
-		};
-		let component = TextComponent {
-			text: data().unwrap_or("".into()),
-			color: None,
-			preset: None,
+		let name = match name {
+			Some(string) => string,
+			None => "Untitled Block".into(),
 		};
 
-		let meta = DisplayMeta {
-			page: Some(PageMeta {
-				title: Some("Data".into()),
-				header: data(),
-			}),
+		let content = match content {
+			Some(string) => TextComponent::new(&string),
+			None => TextComponent::new("Empty Block"),
 		};
-		Ok(DisplayObject {
-			display: Box::new(component),
-			meta: Some(meta),
-		})
+
+		Ok(DisplayObject::new(Box::new(content))
+			.meta(DisplayMeta::new().page(PageMeta::new().header(&name))))
 	}
 
 	async fn embed_display(
-		block: &BlockD,
-		_context: &Context,
+		block: &Block,
+		context: &Context,
 	) -> Result<Box<dyn DisplayComponent>, Error> {
-		let data: Option<String> = block.clone().block_data.clone();
-		let card_content = TextComponent {
-			text: data.unwrap_or("".into()),
-			color: None,
-			preset: None,
+		let (name, content) = text_properties(block, context)?;
+
+		let name = name.and_then(|block| block.block_data);
+		let content = content.and_then(|block| block.block_data);
+
+		let name = match name {
+			Some(string) => string,
+			None => "Untitled Block".into(),
+		};
+
+		let content = match content {
+			Some(string) => TextComponent::new(&string),
+			None => TextComponent::new("Empty Block"),
 		};
 		let component = CardComponent {
-			content: Box::new(card_content),
+			content: Box::new(content),
 			color: None,
 			header: CardHeader {
-				title: "Data".into(),
-				icon: Some(CardIcon::Box),
+				title: name,
+				icon: Some(CardIcon::Type),
 				block_id: Some(block.id.to_string()),
 			},
 		};
@@ -80,39 +109,65 @@ impl BlockType for TextBlock {
 	}
 
 	async fn create_display(_context: &Context, _user_id: i32) -> Result<CreationObject, Error> {
-		let header = TextComponent {
-			preset: Some(TextPreset::Heading),
-			text: "New Data Block".into(),
-			color: None,
-		};
-		let main = InputComponent {
-			label: Some("Data".into()),
-			name: Some("DATA".into()),
-			confirm_cancel: None,
-			input_type: None,
-			initial_value: None,
-		};
+		let header = TextComponent::new("New Text Block").preset(TextPreset::Heading);
+		let name_input = InputComponent::new().label("Name").name("NAME");
+		let content_input = InputComponent::new().label("Text").name("CONTENT");
+		let main = StackComponent::new(StackDirection::Vertical)
+			.add(Box::new(name_input))
+			.add(Box::new(content_input));
+
+		let template = json!({
+			"name": "$[NAME]$",
+			"content": "$[CONTENT]$",
+		});
 		let object = CreationObject {
 			header_component: Box::new(header),
 			main_component: Box::new(main),
-			input_template: "$[DATA]$".into(),
+			input_template: template.to_string(),
 		};
 		Ok(object)
 	}
 
-	async fn create(input: String, context: &Context, user_id: i32) -> Result<BlockD, Error> {
+	async fn create(input: String, context: &Context, user_id: i32) -> Result<Block, Error> {
 		let conn = &context.pool.get()?;
+		let input: CreationArgs =
+			serde_json::from_str(&input).map_err(|_| BlockError::InputParse)?;
 
-		let block = NewBlock {
-			block_type: "data",
-			created_at: std::time::SystemTime::now(),
-			updated_at: std::time::SystemTime::now(),
-			block_data: Some(input.as_str()),
+		let text_block = MinNewBlock {
+			block_type: "text",
 			owner_id: user_id,
-		};
+		}
+		.insert(conn)?;
 
-		Ok(dsl::insert_into(blocks::table)
-			.values(&block)
-			.get_result(conn)?)
+		let name_block = MinNewBlock {
+			block_type: "data",
+			owner_id: user_id,
+		}
+		.into()
+		.data(input.name)
+		.insert(conn)?;
+
+		let content_block = MinNewBlock {
+			block_type: "data",
+			owner_id: user_id,
+		}
+		.into()
+		.data(input.content)
+		.insert(conn)?;
+
+		text_block
+			.make_property("name", name_block.id)
+			.insert(conn)?;
+		text_block
+			.make_property("content", content_block.id)
+			.insert(conn)?;
+
+		Ok(text_block)
 	}
+}
+
+#[derive(Serialize, Deserialize)]
+struct CreationArgs<'a> {
+	name: &'a str,
+	content: &'a str,
 }
