@@ -16,16 +16,14 @@ use block_tools::{
 	schema::{blocks, properties},
 	BlockError, Error,
 };
+use data_block::edit_data_component;
 use serde::{Deserialize, Serialize};
-use serde_json::json;
 pub struct TextBlock {}
 
 fn text_properties(
 	block: &Block,
-	context: &Context,
+	conn: &PgConnection,
 ) -> Result<(Option<Block>, Option<Block>), Error> {
-	let conn = &context.pool.get()?;
-
 	let block_properties: Vec<Property> = properties::dsl::properties
 		.filter(properties::dsl::parent_id.eq(block.id))
 		.load::<Property>(conn)?;
@@ -54,35 +52,42 @@ fn text_properties(
 
 #[async_trait]
 impl BlockType for TextBlock {
-	fn name(&self) -> &str {
-		"text"
+	fn name() -> String {
+		"text".to_string()
 	}
 
 	async fn page_display(block: &Block, context: &Context) -> Result<DisplayObject, Error> {
-		let (name, content) = text_properties(block, context)?;
+		let conn = &context.pool.get()?;
+		let (name, content) = text_properties(block, conn)?;
 
 		let name = name.and_then(|block| block.block_data);
-		let content = content.and_then(|block| block.block_data);
 
 		let name = match name {
 			Some(string) => string,
 			None => "Untitled Block".into(),
 		};
 
-		let content = match content {
-			Some(string) => TextComponent::new(&string),
-			None => TextComponent::new("Empty Block"),
+		let content: Box<dyn DisplayComponent> = match content {
+			Some(block) => Box::new(
+				edit_data_component(block.id.to_string())
+					.label("Block Text")
+					.initial_value(&block.block_data.unwrap_or("".to_string())),
+			),
+			None => Box::new(TextComponent::new("Empty Block")),
 		};
 
-		Ok(DisplayObject::new(Box::new(content))
-			.meta(DisplayMeta::new().page(PageMeta::new().header(&name))))
+		Ok(
+			DisplayObject::new(content)
+				.meta(DisplayMeta::new().page(PageMeta::new().header(&name))),
+		)
 	}
 
 	async fn embed_display(
 		block: &Block,
 		context: &Context,
 	) -> Result<Box<dyn DisplayComponent>, Error> {
-		let (name, content) = text_properties(block, context)?;
+		let conn = &context.pool.get()?;
+		let (name, content) = text_properties(block, conn)?;
 
 		let name = name.and_then(|block| block.block_data);
 		let content = content.and_then(|block| block.block_data);
@@ -116,25 +121,28 @@ impl BlockType for TextBlock {
 			.add(Box::new(name_input))
 			.add(Box::new(content_input));
 
-		let template = json!({
-			"name": "$[NAME]$",
-			"content": "$[CONTENT]$",
-		});
+		let template: String = r#"{
+			"name": $[NAME]$,
+			"content": $[CONTENT]$
+		}"#
+		.split_whitespace()
+		.collect();
 		let object = CreationObject {
 			header_component: Box::new(header),
 			main_component: Box::new(main),
-			input_template: template.to_string(),
+			input_template: template,
 		};
 		Ok(object)
 	}
 
 	async fn create(input: String, context: &Context, user_id: i32) -> Result<Block, Error> {
 		let conn = &context.pool.get()?;
-		let input: CreationArgs =
-			serde_json::from_str(&input).map_err(|_| BlockError::InputParse)?;
+		let input = serde_json::from_str::<CreationArgs>(&input);
+
+		let input: CreationArgs = input.map_err(|_| BlockError::InputParse)?;
 
 		let text_block = MinNewBlock {
-			block_type: "text",
+			block_type: &TextBlock::name(),
 			owner_id: user_id,
 		}
 		.insert(conn)?;
@@ -144,7 +152,7 @@ impl BlockType for TextBlock {
 			owner_id: user_id,
 		}
 		.into()
-		.data(input.name)
+		.data(&input.name)
 		.insert(conn)?;
 
 		let content_block = MinNewBlock {
@@ -152,7 +160,7 @@ impl BlockType for TextBlock {
 			owner_id: user_id,
 		}
 		.into()
-		.data(input.content)
+		.data(&input.content)
 		.insert(conn)?;
 
 		text_block
@@ -164,10 +172,21 @@ impl BlockType for TextBlock {
 
 		Ok(text_block)
 	}
+
+	async fn method_delegate(
+		_context: &Context,
+		name: String,
+		_block_id: i64,
+		_args: String,
+	) -> Result<Block, Error> {
+		match name.as_str() {
+			_ => Err(BlockError::MethodExist(name, TextBlock::name()).into()),
+		}
+	}
 }
 
-#[derive(Serialize, Deserialize)]
-struct CreationArgs<'a> {
-	name: &'a str,
-	content: &'a str,
+#[derive(Serialize, Deserialize, Debug)]
+struct CreationArgs {
+	name: String,
+	content: String,
 }
