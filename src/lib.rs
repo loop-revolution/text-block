@@ -1,9 +1,9 @@
 use async_trait::async_trait;
 use block_tools::{
-	blocks::{BlockType, Context},
+	blocks::{BlockType, Context, TypeInfo},
 	display_api::{
 		component::{
-			card::{CardComponent, CardHeader, CardIcon},
+			card::{CardComponent, CardHeader, Icon},
 			input::InputComponent,
 			stack::{StackComponent, StackDirection},
 			text::{TextComponent, TextPreset},
@@ -19,6 +19,8 @@ use block_tools::{
 use data_block::edit_data_component;
 use serde::{Deserialize, Serialize};
 pub struct TextBlock {}
+
+pub const BLOCK_NAME: &'static str = "text";
 
 fn text_properties(
 	block: &Block,
@@ -53,7 +55,15 @@ fn text_properties(
 #[async_trait]
 impl BlockType for TextBlock {
 	fn name() -> String {
-		"text".to_string()
+		BLOCK_NAME.to_string()
+	}
+
+	fn info() -> TypeInfo {
+		TypeInfo {
+			name: Self::name(),
+			icon: Icon::Type,
+			desc: "A piece of text with a name.".to_string(),
+		}
 	}
 
 	async fn page_display(block: &Block, context: &Context) -> Result<DisplayObject, Error> {
@@ -106,7 +116,7 @@ impl BlockType for TextBlock {
 			color: None,
 			header: CardHeader {
 				title: name,
-				icon: Some(CardIcon::Type),
+				icon: Some(Icon::Type),
 				block_id: Some(block.id.to_string()),
 			},
 		};
@@ -148,7 +158,7 @@ impl BlockType for TextBlock {
 		.insert(conn)?;
 
 		let name_block = MinNewBlock {
-			block_type: "data",
+			block_type: data_block::BLOCK_NAME,
 			owner_id: user_id,
 		}
 		.into()
@@ -156,7 +166,7 @@ impl BlockType for TextBlock {
 		.insert(conn)?;
 
 		let content_block = MinNewBlock {
-			block_type: "data",
+			block_type: data_block::BLOCK_NAME,
 			owner_id: user_id,
 		}
 		.into()
