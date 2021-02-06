@@ -164,6 +164,15 @@ impl BlockType for TextBlock {
 			_ => Err(BlockError::MethodExist(name, TextBlock::name()).into()),
 		}
 	}
+
+	fn block_name(block: &Block, context: &Context) -> Result<String, Error> {
+		let conn = &context.pool.get()?;
+		let (name, _) = text_properties(block, conn)?;
+		Ok(match name.and_then(|block| block.block_data) {
+			Some(data) => data,
+			None => "Text Block".to_string(),
+		})
+	}
 }
 
 #[derive(Serialize, Deserialize, Debug)]
