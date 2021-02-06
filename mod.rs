@@ -1,9 +1,9 @@
-use async_trait::async_trait;
+use super::data_block::{self, edit_data_component};
 use block_tools::{
 	blocks::{BlockType, Context, TypeInfo},
 	display_api::{
 		component::{
-			card::{CardComponent, CardHeader, Icon},
+			card::{error_card, CardComponent, CardHeader, Icon},
 			input::InputComponent,
 			stack::{StackComponent, StackDirection},
 			text::{TextComponent, TextPreset},
@@ -16,7 +16,6 @@ use block_tools::{
 	schema::{blocks, properties},
 	BlockError, Error,
 };
-use data_block::edit_data_component;
 use serde::{Deserialize, Serialize};
 pub struct TextBlock {}
 
@@ -52,7 +51,6 @@ fn text_properties(
 	Ok((name, content))
 }
 
-#[async_trait]
 impl BlockType for TextBlock {
 	fn name() -> String {
 		BLOCK_NAME.to_string()
@@ -66,7 +64,7 @@ impl BlockType for TextBlock {
 		}
 	}
 
-	async fn page_display(block: &Block, context: &Context) -> Result<DisplayObject, Error> {
+	fn page_display(block: &Block, context: &Context) -> Result<DisplayObject, Error> {
 		let conn = &context.pool.get()?;
 		let (name, content) = text_properties(block, conn)?;
 
@@ -92,38 +90,11 @@ impl BlockType for TextBlock {
 		)
 	}
 
-	async fn embed_display(
-		block: &Block,
-		context: &Context,
-	) -> Result<Box<dyn DisplayComponent>, Error> {
-		let conn = &context.pool.get()?;
-		let (name, content) = text_properties(block, conn)?;
-
-		let name = name.and_then(|block| block.block_data);
-		let content = content.and_then(|block| block.block_data);
-
-		let name = match name {
-			Some(string) => string,
-			None => "Untitled Block".into(),
-		};
-
-		let content = match content {
-			Some(string) => TextComponent::new(&string),
-			None => TextComponent::new("Empty Block"),
-		};
-		let component = CardComponent {
-			content: Box::new(content),
-			color: None,
-			header: CardHeader {
-				title: name,
-				icon: Some(Icon::Type),
-				block_id: Some(block.id.to_string()),
-			},
-		};
-		Ok(Box::new(component))
+	fn embed_display(block: &Block, context: &Context) -> Box<dyn DisplayComponent> {
+		embed_display(block, context).unwrap_or_else(|e| Box::new(error_card(&e.to_string())))
 	}
 
-	async fn create_display(_context: &Context, _user_id: i32) -> Result<CreationObject, Error> {
+	fn create_display(_context: &Context, _user_id: i32) -> Result<CreationObject, Error> {
 		let header = TextComponent::new("New Text Block").preset(TextPreset::Heading);
 		let name_input = InputComponent::new().label("Name").name("NAME");
 		let content_input = InputComponent::new().label("Text").name("CONTENT");
@@ -145,7 +116,7 @@ impl BlockType for TextBlock {
 		Ok(object)
 	}
 
-	async fn create(input: String, context: &Context, user_id: i32) -> Result<Block, Error> {
+	fn create(input: String, context: &Context, user_id: i32) -> Result<Block, Error> {
 		let conn = &context.pool.get()?;
 		let input = serde_json::from_str::<CreationArgs>(&input);
 
@@ -183,7 +154,7 @@ impl BlockType for TextBlock {
 		Ok(text_block)
 	}
 
-	async fn method_delegate(
+	fn method_delegate(
 		_context: &Context,
 		name: String,
 		_block_id: i64,
@@ -199,4 +170,32 @@ impl BlockType for TextBlock {
 struct CreationArgs {
 	name: String,
 	content: String,
+}
+
+fn embed_display(block: &Block, context: &Context) -> Result<Box<dyn DisplayComponent>, Error> {
+	let conn = &context.pool.get()?;
+	let (name, content) = text_properties(block, conn)?;
+
+	let name = name.and_then(|block| block.block_data);
+	let content = content.and_then(|block| block.block_data);
+
+	let name = match name {
+		Some(string) => string,
+		None => "Untitled Block".into(),
+	};
+
+	let content = match content {
+		Some(string) => TextComponent::new(&string),
+		None => TextComponent::new("Empty Block"),
+	};
+	let component = CardComponent {
+		content: Box::new(content),
+		color: None,
+		header: CardHeader {
+			title: name,
+			icon: Some(Icon::Type),
+			block_id: Some(block.id.to_string()),
+		},
+	};
+	Ok(Box::new(component))
 }
