@@ -1,5 +1,6 @@
 use super::data_block::{self, edit_data_component};
 use block_tools::{
+	auth::{optional_token, optional_validate_token, permissions::can_view},
 	blocks::{BlockType, Context, TypeInfo},
 	display_api::{
 		component::{
@@ -24,6 +25,7 @@ pub const BLOCK_NAME: &'static str = "text";
 fn text_properties(
 	block: &Block,
 	conn: &PgConnection,
+	user_id: Option<i32>,
 ) -> Result<(Option<Block>, Option<Block>), Error> {
 	let block_properties: Vec<Property> = properties::dsl::properties
 		.filter(properties::dsl::parent_id.eq(block.id))
@@ -48,6 +50,22 @@ fn text_properties(
 		}
 	}
 
+	if let Some(block) = name {
+		if !can_view(user_id, &block) {
+			name = None;
+		} else {
+			name = Some(block)
+		}
+	}
+
+	if let Some(block) = content {
+		if !can_view(user_id, &block) {
+			content = None;
+		} else {
+			content = Some(block)
+		}
+	}
+
 	Ok((name, content))
 }
 
@@ -66,7 +84,8 @@ impl BlockType for TextBlock {
 
 	fn page_display(block: &Block, context: &Context) -> Result<DisplayObject, Error> {
 		let conn = &context.pool.get()?;
-		let (name, content) = text_properties(block, conn)?;
+		let user_id = optional_validate_token(optional_token(context))?;
+		let (name, content) = text_properties(block, conn, user_id)?;
 
 		let name = name.and_then(|block| block.block_data);
 
@@ -167,7 +186,8 @@ impl BlockType for TextBlock {
 
 	fn block_name(block: &Block, context: &Context) -> Result<String, Error> {
 		let conn = &context.pool.get()?;
-		let (name, _) = text_properties(block, conn)?;
+		let user_id = optional_validate_token(optional_token(context))?;
+		let (name, _) = text_properties(block, conn, user_id)?;
 		Ok(match name.and_then(|block| block.block_data) {
 			Some(data) => data,
 			None => "Text Block".to_string(),
@@ -183,7 +203,8 @@ struct CreationArgs {
 
 fn embed_display(block: &Block, context: &Context) -> Result<Box<dyn DisplayComponent>, Error> {
 	let conn = &context.pool.get()?;
-	let (name, content) = text_properties(block, conn)?;
+	let user_id = optional_validate_token(optional_token(context))?;
+	let (name, content) = text_properties(block, conn, user_id)?;
 
 	let name = name.and_then(|block| block.block_data);
 	let content = content.and_then(|block| block.block_data);
