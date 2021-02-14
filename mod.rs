@@ -118,8 +118,8 @@ impl BlockType for TextBlock {
 		let name_input = InputComponent::new().label("Name").name("NAME");
 		let content_input = InputComponent::new().label("Text").name("CONTENT");
 		let main = StackComponent::new(StackDirection::Vertical)
-			.add(Box::new(name_input))
-			.add(Box::new(content_input));
+			.append(Box::new(name_input))
+			.append(Box::new(content_input));
 
 		let template: String = r#"{
 			"name": $[NAME]$,
