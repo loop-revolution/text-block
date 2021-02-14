@@ -20,7 +20,7 @@ use block_tools::{
 use serde::{Deserialize, Serialize};
 pub struct TextBlock {}
 
-pub const BLOCK_NAME: &'static str = "text";
+pub const BLOCK_NAME: &str = "text";
 
 fn text_properties(
 	block: &Block,
@@ -98,7 +98,7 @@ impl BlockType for TextBlock {
 			Some(block) => Box::new(
 				edit_data_component(block.id.to_string())
 					.label("Block Text")
-					.initial_value(&block.block_data.unwrap_or("".to_string())),
+					.initial_value(&block.block_data.unwrap_or_else(|| "".to_string())),
 			),
 			None => Box::new(TextComponent::new("Empty Block")),
 		};
@@ -179,9 +179,7 @@ impl BlockType for TextBlock {
 		_block_id: i64,
 		_args: String,
 	) -> Result<Block, Error> {
-		match name.as_str() {
-			_ => Err(BlockError::MethodExist(name, TextBlock::name()).into()),
-		}
+		Err(BlockError::MethodExist(name, TextBlock::name()).into())
 	}
 
 	fn block_name(block: &Block, context: &Context) -> Result<String, Error> {
