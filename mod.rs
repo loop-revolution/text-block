@@ -105,7 +105,7 @@ impl BlockType for TextBlock {
 
 		Ok(
 			DisplayObject::new(content)
-				.meta(DisplayMeta::new().page(PageMeta::new().header(&name))),
+				.meta(DisplayMeta::default().page(PageMeta::new().header(&name))),
 		)
 	}
 
