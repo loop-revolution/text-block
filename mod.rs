@@ -103,10 +103,8 @@ impl BlockType for TextBlock {
 			None => Box::new(TextComponent::new("Empty Block")),
 		};
 
-		Ok(
-			DisplayObject::new(content)
-				.meta(DisplayMeta::default().page(PageMeta::new().header(&name))),
-		)
+		Ok(DisplayObject::new(content)
+			.meta(DisplayMeta::default().page(PageMeta::new().header(&name))))
 	}
 
 	fn embed_display(block: &Block, context: &Context) -> Box<dyn DisplayComponent> {
