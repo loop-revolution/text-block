@@ -4,7 +4,8 @@ use block_tools::{
 	blocks::{BlockType, Context, TypeInfo},
 	display_api::{
 		component::{
-			card::{error_card, CardComponent, CardHeader, Icon},
+			card::{error_card, CardComponent, CardHeader},
+			icon::Icon,
 			input::InputComponent,
 			menu::MenuComponent,
 			stack::{StackComponent, StackDirection},
