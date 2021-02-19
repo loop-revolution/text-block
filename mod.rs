@@ -221,6 +221,7 @@ fn embed_display(block: &Block, context: &Context) -> Result<Box<dyn DisplayComp
 			title: name,
 			icon: Some(Icon::Type),
 			block_id: Some(block.id.to_string()),
+			menu: None,
 		},
 	};
 	Ok(Box::new(component))
