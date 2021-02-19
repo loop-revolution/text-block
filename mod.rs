@@ -227,15 +227,13 @@ fn embed_display(block: &Block, context: &Context) -> Result<Box<dyn DisplayComp
 		None => None,
 	};
 
+	let mut header = CardHeader::new(&name).icon(Icon::Type).id(block.id);
+	header.menu = menu;
+
 	let component = CardComponent {
 		content: Box::new(content),
 		color: None,
-		header: CardHeader {
-			title: name,
-			icon: Some(Icon::Type),
-			block_id: Some(block.id.to_string()),
-			menu,
-		},
+		header,
 	};
 	Ok(Box::new(component))
 }
