@@ -6,6 +6,7 @@ use block_tools::{
 		component::{
 			card::{error_card, CardComponent, CardHeader, Icon},
 			input::InputComponent,
+			menu::MenuComponent,
 			stack::{StackComponent, StackDirection},
 			text::{TextComponent, TextPreset},
 			DisplayComponent,
@@ -103,8 +104,13 @@ impl BlockType for TextBlock {
 			None => Box::new(TextComponent::new("Empty Block")),
 		};
 
-		Ok(DisplayObject::new(content)
-			.meta(DisplayMeta::default().page(PageMeta::new().header(&name))))
+		let mut page = PageMeta::new().header(&name);
+
+		if let Some(user_id) = user_id {
+			page.menu = Some(MenuComponent::load_from_block(block, user_id));
+		}
+
+		Ok(DisplayObject::new(content).meta(DisplayMeta::default().page(page)))
 	}
 
 	fn embed_display(block: &Block, context: &Context) -> Box<dyn DisplayComponent> {
@@ -214,6 +220,12 @@ fn embed_display(block: &Block, context: &Context) -> Result<Box<dyn DisplayComp
 		Some(string) => TextComponent::new(&string),
 		None => TextComponent::new("Empty Block"),
 	};
+
+	let menu = match user_id {
+		Some(user_id) => Some(MenuComponent::load_from_block(block, user_id)),
+		None => None,
+	};
+
 	let component = CardComponent {
 		content: Box::new(content),
 		color: None,
@@ -221,7 +233,7 @@ fn embed_display(block: &Block, context: &Context) -> Result<Box<dyn DisplayComp
 			title: name,
 			icon: Some(Icon::Type),
 			block_id: Some(block.id.to_string()),
-			menu: None,
+			menu,
 		},
 	};
 	Ok(Box::new(component))
