@@ -214,6 +214,21 @@ impl BlockType for TextBlock {
 			None => "Text Block".to_string(),
 		})
 	}
+
+	fn visibility_update(context: &Context, block_id: i64, public: bool) -> Result<(), Error> {
+		let conn = &context.conn()?;
+		let property_list: Vec<Property> = properties::dsl::properties
+			.filter(properties::dsl::parent_id.eq(block_id))
+			.load::<Property>(conn)?;
+
+		for property in property_list {
+			if let Some(block) = Block::by_id(property.value_id, conn)? {
+				block.update_public(public, conn)?;
+			};
+		}
+
+		Ok(())
+	}
 }
 
 #[derive(Serialize, Deserialize, Debug)]
