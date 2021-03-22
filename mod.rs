@@ -1,12 +1,15 @@
-use super::data_block::{self, edit_data_component};
+use super::data_block::{self, masked_data_edit};
 use block_tools::{
-	auth::{optional_token, optional_validate_token, permissions::can_view},
+	auth::{
+		optional_token, optional_validate_token,
+		permissions::{can_view, has_perm_level, PermLevel},
+	},
 	blocks::{BlockType, Context, TypeInfo},
 	display_api::{
 		component::{
 			card::{error_card, CardComponent, CardHeader},
 			icon::Icon,
-			input::InputComponent,
+			input::{InputComponent, InputSize},
 			menu::MenuComponent,
 			stack::{StackComponent, StackDirection},
 			text::{TextComponent, TextPreset},
@@ -89,26 +92,41 @@ impl BlockType for TextBlock {
 		let user_id = optional_validate_token(optional_token(context))?;
 		let (name, content) = text_properties(block, conn, user_id)?;
 
-		let name = name.and_then(|block| block.block_data);
-
-		let name = match name {
+		let name_string = match name.clone().and_then(|block| block.block_data) {
 			Some(string) => string,
 			None => "Untitled Block".into(),
 		};
 
 		let content: Box<dyn DisplayComponent> = match content {
-			Some(block) => Box::new(
-				edit_data_component(block.id.to_string())
-					.label("Block Text")
-					.initial_value(&block.block_data.unwrap_or_else(|| "".to_string())),
-			),
-			None => Box::new(TextComponent::new("Empty Block")),
+			Some(block) => match user_id {
+				Some(id) if has_perm_level(id, &block, PermLevel::Edit) => {
+					box masked_data_edit(block.id.to_string(), block.block_data, false)
+						.label("Text...")
+				}
+				_ => {
+					box TextComponent::new(&block.block_data.unwrap_or_else(|| "No content".into()))
+				}
+			},
+			None => box TextComponent::new("No content"),
 		};
 
-		let mut page = PageMeta::new().header(&name);
+		let mut page = PageMeta::new();
 
 		if let Some(user_id) = user_id {
 			page.menu = Some(MenuComponent::load_from_block(block, user_id));
+			if let Some(name) = name {
+				if has_perm_level(user_id, &name, PermLevel::Edit) {
+					page = page.header_component(
+						box masked_data_edit(name.id.to_string(), name.block_data, true)
+							.label("Group Name")
+							.size(InputSize::Medium),
+					)
+				} else {
+					page = page.header(&name_string)
+				}
+			}
+		} else {
+			page = page.header(&name_string)
 		}
 
 		Ok(DisplayObject::new(content).meta(DisplayMeta::default().page(page)))
