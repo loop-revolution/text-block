@@ -265,7 +265,7 @@ fn embed_display(block: &Block, context: &Context) -> Result<Box<dyn DisplayComp
 
 	let component = CardComponent {
 		content: Box::new(content),
-		color: None,
+		color: block.color.clone(),
 		header,
 	};
 	Ok(Box::new(component))
