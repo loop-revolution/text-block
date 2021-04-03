@@ -1,4 +1,4 @@
-use super::data_block::{self, masked_data_edit};
+use super::data_block::DataBlock;
 use block_tools::{
 	auth::{
 		optional_token, optional_validate_token,
@@ -100,8 +100,12 @@ impl BlockType for TextBlock {
 		let content: Box<dyn DisplayComponent> = match content {
 			Some(block) => match user_id {
 				Some(id) if has_perm_level(id, &block, PermLevel::Edit) => {
-					box masked_data_edit(block.id.to_string(), block.block_data, false)
-						.label("Text...")
+					box DataBlock::masked_editable_data(
+						block.id.to_string(),
+						block.block_data,
+						false,
+					)
+					.label("Text...")
 				}
 				_ => {
 					box TextComponent::new(&block.block_data.unwrap_or_else(|| "No content".into()))
@@ -117,9 +121,13 @@ impl BlockType for TextBlock {
 			if let Some(name) = name {
 				if has_perm_level(user_id, &name, PermLevel::Edit) {
 					page = page.header_component(
-						box masked_data_edit(name.id.to_string(), name.block_data, true)
-							.label("Group Name")
-							.size(InputSize::Medium),
+						box DataBlock::masked_editable_data(
+							name.id.to_string(),
+							name.block_data,
+							true,
+						)
+						.label("Group Name")
+						.size(InputSize::Medium),
 					)
 				} else {
 					page = page.header(&name_string)
@@ -133,7 +141,7 @@ impl BlockType for TextBlock {
 	}
 
 	fn embed_display(block: &Block, context: &Context) -> Box<dyn DisplayComponent> {
-		embed_display(block, context).unwrap_or_else(|e| Box::new(error_card(&e.to_string())))
+		embed_display(block, context).unwrap_or_else(|e| box error_card(&e.to_string()))
 	}
 
 	fn create_display(_context: &Context, _user_id: i32) -> Result<CreationObject, Error> {
@@ -141,8 +149,8 @@ impl BlockType for TextBlock {
 		let name_input = InputComponent::new().label("Name").name("NAME");
 		let content_input = InputComponent::new().label("Text").name("CONTENT");
 		let main = StackComponent::new(StackDirection::Vertical)
-			.append(Box::new(name_input))
-			.append(Box::new(content_input));
+			.append(box name_input)
+			.append(box content_input);
 
 		let template: String = r#"{
 			"name": $[NAME]$,
@@ -151,8 +159,8 @@ impl BlockType for TextBlock {
 		.split_whitespace()
 		.collect();
 		let object = CreationObject {
-			header_component: Box::new(header),
-			main_component: Box::new(main),
+			header_component: box header,
+			main_component: box main,
 			input_template: template,
 		};
 		Ok(object)
@@ -171,7 +179,7 @@ impl BlockType for TextBlock {
 		.insert(conn)?;
 
 		let name_block = MinNewBlock {
-			block_type: data_block::BLOCK_NAME,
+			block_type: &DataBlock::name(),
 			owner_id: user_id,
 		}
 		.into()
@@ -179,7 +187,7 @@ impl BlockType for TextBlock {
 		.insert(conn)?;
 
 		let content_block = MinNewBlock {
-			block_type: data_block::BLOCK_NAME,
+			block_type: &DataBlock::name(),
 			owner_id: user_id,
 		}
 		.into()
@@ -264,9 +272,9 @@ fn embed_display(block: &Block, context: &Context) -> Result<Box<dyn DisplayComp
 	header.menu = menu;
 
 	let component = CardComponent {
-		content: Box::new(content),
+		content: box content,
 		color: block.color.clone(),
 		header,
 	};
-	Ok(Box::new(component))
+	Ok(box component)
 }
