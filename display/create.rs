@@ -3,13 +3,13 @@ use block_tools::{
 		component::{atomic::text::TextComponent, misc::richtext::RichTextComponent},
 		CreationObject,
 	},
-	Error,
+	LoopError,
 };
 
 use super::super::TextBlock;
 
 impl TextBlock {
-	pub fn handle_create_display() -> Result<CreationObject, Error> {
+	pub fn handle_create_display() -> Result<CreationObject, LoopError> {
 		let header = TextComponent::heading("New Text Block");
 		let main = RichTextComponent {
 			editable: Some(true),

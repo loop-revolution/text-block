@@ -3,11 +3,15 @@ use block_tools::blocks::BlockType;
 use block_tools::{
 	blocks::Context,
 	models::{Block, NewBlock},
-	Error,
+	LoopError,
 };
 
 impl TextBlock {
-	pub fn handle_create(input: String, context: &Context, user_id: i32) -> Result<Block, Error> {
+	pub fn handle_create(
+		input: String,
+		context: &Context,
+		user_id: i32,
+	) -> Result<Block, LoopError> {
 		let conn = &context.pool.get()?;
 
 		let display = Self::data_to_display(&input);

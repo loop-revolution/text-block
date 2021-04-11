@@ -1,11 +1,11 @@
 use block_tools::{
-	blocks::Context, db::schema::blocks, dsl, dsl::prelude::*, models::Block, Error,
+	blocks::Context, db::schema::blocks, dsl, dsl::prelude::*, models::Block, LoopError,
 };
 
 use crate::blocks::text_block::TextBlock;
 
 impl TextBlock {
-	pub fn edit_method(context: &Context, block_id: i64, args: String) -> Result<Block, Error> {
+	pub fn edit_method(context: &Context, block_id: i64, args: String) -> Result<Block, LoopError> {
 		let conn = &context.pool.get()?;
 
 		let display = Self::data_to_display(&args);

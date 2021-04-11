@@ -6,13 +6,16 @@ use block_tools::{
 	blocks::Context,
 	display_api::{component::menus::menu::MenuComponent, DisplayMeta, DisplayObject, PageMeta},
 	models::Block,
-	Error,
+	LoopError,
 };
 
 use crate::blocks::text_block::TextBlock;
 
 impl TextBlock {
-	pub fn handle_page_display(block: &Block, context: &Context) -> Result<DisplayObject, Error> {
+	pub fn handle_page_display(
+		block: &Block,
+		context: &Context,
+	) -> Result<DisplayObject, LoopError> {
 		let user_id = optional_validate_token(optional_token(context))?;
 
 		// Make access to data details easier
