@@ -9,7 +9,7 @@ use block_tools::{
 };
 
 mod data_convert;
-pub mod display;
+mod display;
 mod methods;
 
 pub const BLOCK_NAME: &str = "text";
