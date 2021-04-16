@@ -1,7 +1,7 @@
 use block_tools::{
 	blocks::{BlockType, Context, TypeInfo},
 	display_api::{
-		component::{atomic::icon::Icon, DisplayComponent},
+		component::{atomic::icon::Icon, layout::card::CardComponent, DisplayComponent},
 		CreationObject, DisplayObject,
 	},
 	models::Block,
@@ -35,6 +35,7 @@ impl BlockType for TextBlock {
 
 	fn embed_display(block: &Block, context: &Context) -> DisplayComponent {
 		Self::handle_embed_display(block, context)
+			.unwrap_or_else(|e| CardComponent::error_card(e).into())
 	}
 
 	fn create_display(_context: &Context, _user_id: i32) -> Result<CreationObject, LoopError> {
