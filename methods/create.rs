@@ -1,5 +1,5 @@
 use crate::blocks::text_block::TextBlock;
-use block_tools::blocks::BlockType;
+use block_tools::{blocks::BlockType, display_api::component::DisplayComponent};
 use block_tools::{
 	blocks::Context,
 	models::{Block, NewBlock},
@@ -12,9 +12,17 @@ impl TextBlock {
 		context: &Context,
 		user_id: i32,
 	) -> Result<Block, LoopError> {
+		let display = Self::data_to_display(&input);
+
+		Self::handle_create_vec(display, context, user_id)
+	}
+	pub fn handle_create_vec(
+		display: Vec<DisplayComponent>,
+		context: &Context,
+		user_id: i32,
+	) -> Result<Block, LoopError> {
 		let conn = &context.pool.get()?;
 
-		let display = Self::data_to_display(&input);
 		let data = Self::display_to_data(display);
 
 		let block = NewBlock {

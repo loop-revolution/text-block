@@ -8,7 +8,7 @@ use block_tools::{
 	LoopError,
 };
 
-mod data_convert;
+pub mod data_convert;
 mod display;
 mod methods;
 

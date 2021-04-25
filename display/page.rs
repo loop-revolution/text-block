@@ -38,7 +38,7 @@ impl TextBlock {
 		};
 		Ok(DisplayObject {
 			meta: Some(meta),
-			..DisplayObject::new(component.into())
+			..DisplayObject::new(component)
 		})
 	}
 }
